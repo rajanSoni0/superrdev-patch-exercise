@@ -1,27 +1,36 @@
 # Patch Exercise Notes
 
 ## Summary of Changes
-
-I focused on fixing correctness, reliability, and API behavior without rewriting the application.
-
-I fixed the task search SQL precedence issue so archived tasks are excluded and the status filter is applied correctly to both title and description searches. I also updated the H2 and Oracle reference SQL to keep the same logic.
-
-I fixed the frontend pagination behavior so changing the search query or status resets the page to 1.
-
-I removed an artificial `Thread.sleep()` from the task API that unnecessarily delayed requests and could cause requests to complete out of order.
-
-I improved the frontend request lifecycle by resetting errors, correctly clearing the loading state on failures, and preventing stale requests from overwriting newer results.
-
-I added validation for `status`, `page`, and `pageSize` so invalid client input returns HTTP 400 instead of causing server errors. I also changed the pagination offset calculation to use `long` to avoid integer overflow for very large page values.
+- **SQL precedence:** Unparenthesized `AND`/`OR` made the status filter
+  ineffective and let archived tasks leak into results. I grouped the
+  title/description match in the repository query, `search_tasks.sql`, and
+  both Oracle queries (they mirror the app).
+- **Artificial delay:** Removed `Thread.sleep()`. It blocked request threads
+  and made short queries slowest, so responses could arrive out of order.
+- **Frontend request lifecycle:** `useTasks` now ignores stale responses,
+  resets `error` on each request, and clears `loading` on failure.
+- **Pagination reset:** Page returns to 1 when the search or status changes.
+- **Validation:** Invalid `status`, `page` and `pageSize` return 400 instead
+  of 500. The offset uses `long` to avoid integer overflow on huge pages.
 
 ## What I Chose Not to Change
-
-I did not rewrite the pagination/database implementation or make broader architectural changes because the exercise is timeboxed. I also left smaller issues such as search debouncing, LIKE wildcard escaping, and logging cleanup unchanged.
+- **In-memory pagination:** moving it to the database is a larger change;
+  I kept the diff small.
+- **Debouncing:** the `ignore` flag already prevents wrong results, so
+  debounce would only save network requests.
+- **Low-impact items:** LIKE wildcard escaping, logger instead of
+  `System.out.println`, hardcoded page size in `App.jsx`, and input
+  validation in the Oracle procedure.
+- **Package restructuring:** would bury the real fixes in a noisy diff.
 
 ## Biggest Remaining Risk
-
-Pagination is still performed in memory after retrieving all matching tasks. This could become a performance problem as the dataset grows. A production implementation should move pagination into the database query.
+Pagination loads every matching row into memory, which will not scale.
+A close second: the H2 console is enabled and `show-sql` is on, which
+must not reach production.
 
 ## Tools / AI Used
-
-I used ChatGPT and Claude to help inspect the code, identify potential bugs, reason about fixes, and review the changes. I reproduced issues locally, tested the fixes, and made the final code changes myself.
+I used Claude and ChatGPT to review the code and suggest candidate bugs.
+[I ran the app and confirmed each failure myself, e.g. `?status=DONE`
+returned all statuses before the fix and only DONE after.] I wrote and
+tested the fixes myself. [I chose an `ignore` flag over `AbortController`
+because ___.] [I rejected the suggestion to ___ because ___.]
