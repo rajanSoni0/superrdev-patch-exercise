@@ -56,11 +56,11 @@ public class TaskController {
         List<Task> allResults =
                 taskRepository.searchTasks(searchTerm, normalizedStatus);
 
-        int start = (page - 1) * pageSize;
-        int end = Math.min(start + pageSize, allResults.size());
+        long start = (long) (page - 1) * pageSize;
+        long end = Math.min(start + pageSize, allResults.size());
 
         List<Task> pageResults = (start < allResults.size())
-                ? allResults.subList(start, end)
+                ? allResults.subList((int) start, (int) end)
                 : Collections.emptyList();
 
         Map<String, Object> response = new LinkedHashMap<>();
